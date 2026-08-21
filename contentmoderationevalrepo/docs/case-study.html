@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project 1 — Content Moderation Classifier + Evaluation Harness</title>
+<style>
+  :root{
+    --plane:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --baseline:#c3c2b7; --accent:#2a78d6; --good-ink:#006300; --crit:#d03b3b;
+    --ring:rgba(11,11,11,0.10); --hl:#fbf3d0;
+  }
+  :root[data-theme="dark"]{
+    --plane:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --baseline:#383835; --accent:#3987e5; --good-ink:#0ca30c; --crit:#e66767;
+    --ring:rgba(255,255,255,0.12); --hl:#3a3717;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --plane:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+      --grid:#2c2c2a; --baseline:#383835; --accent:#3987e5; --good-ink:#0ca30c; --crit:#e66767;
+      --ring:rgba(255,255,255,0.12); --hl:#3a3717;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--plane); color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.62;
+    -webkit-font-smoothing:antialiased; font-size:16px}
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px}
+  header.top{border-bottom:1px solid var(--grid)}
+  .top .wrap{display:flex; align-items:center; justify-content:space-between; height:52px}
+  .tag{font-size:12px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); font-weight:600}
+  .toggle{border:1px solid var(--ring); background:var(--surface); color:var(--ink2); cursor:pointer;
+    font:inherit; font-size:13px; padding:4px 12px; border-radius:999px}
+  h1{font-size:26px; line-height:1.25; letter-spacing:-.01em; margin:34px 0 6px; font-weight:700}
+  .sub{font-size:16px; color:var(--ink2); margin:0 0 8px}
+  h2{font-size:15px; letter-spacing:.03em; text-transform:uppercase; color:var(--muted);
+    margin:38px 0 14px; font-weight:700}
+  p{margin:0 0 1em; color:var(--ink2)}
+  p strong{color:var(--ink)}
+  .k{font-weight:700; color:var(--ink); background:var(--hl); padding:0 4px; border-radius:3px}
+  ul{margin:0 0 1em; padding-left:20px; color:var(--ink2)} li{margin:.35em 0}
+  .step{display:flex; gap:16px; padding:20px 0; border-top:1px solid var(--grid)}
+  .step:first-of-type{border-top:none}
+  .snum{flex:0 0 30px; height:30px; border-radius:999px; border:1px solid var(--ring);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;
+    color:var(--accent); background:var(--surface)}
+  .sbody{flex:1; min-width:0}
+  .sbody h3{margin:3px 0 6px; font-size:17px; font-weight:700; color:var(--ink)}
+  .sbody p:last-child{margin-bottom:0}
+  table{width:100%; border-collapse:collapse; margin:6px 0 4px; font-size:14px}
+  th,td{text-align:left; padding:8px 10px; border-bottom:1px solid var(--grid)}
+  th{color:var(--muted); font-weight:600; font-size:12.5px; text-transform:uppercase; letter-spacing:.03em}
+  td.n{text-align:right; font-variant-numeric:tabular-nums}
+  .met{color:var(--good-ink); font-weight:700} .nomet{color:var(--crit); font-weight:700}
+  .links a{display:inline-block; margin:0 10px 8px 0; color:var(--accent); text-decoration:none;
+    font-weight:600; border:1px solid var(--ring); padding:8px 15px; border-radius:999px; font-size:14px}
+  .links a.soon{color:var(--muted)}
+  footer{margin-top:12px; padding:22px 0 56px; color:var(--muted); font-size:13px; border-top:1px solid var(--grid)}
+  @media (max-width:560px){ h1{font-size:22px} .step{gap:12px} }
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <span class="tag">Portfolio · Project 1</span>
+  <button class="toggle" id="tg">Dark</button>
+</div></header>
+
+<div class="wrap">
+  <h1>Content Moderation Classifier with an Evaluation Harness</h1>
+  <p class="sub">An AI system that flags harmful comments for human review, built and evaluated on the public Jigsaw dataset, running on the lowest-cost model.</p>
+
+  <h2>Problem statement</h2>
+  <p>MidSize Co (a representative client) runs a community platform with about 2 million monthly users. Its comment-moderation queue is roughly 48 hours behind, user complaints are rising, and slow response to threats and hate speech creates legal exposure. The goal is to use Claude to read incoming comments and flag the likely-harmful ones for a human moderator to review — not to delete anything automatically. The main work is not building the classifier; it is measuring it well enough to trust in production.</p>
+
+  <h2>Process</h2>
+
+  <div class="step">
+    <div class="snum">1</div>
+    <div class="sbody">
+      <h3>Scoped a first version</h3>
+      <p>I limited v1 to English-language text comments and the six Jigsaw categories (toxic, severe-toxic, obscene, threat, insult, identity-hate), producing a separate score per category. I left images, video, and other languages out of scope, and kept the system to flagging for review rather than automatic removal.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="snum">2</div>
+    <div class="sbody">
+      <h3>Defined success in business terms</h3>
+      <p>Because missing harmful content is worse than a false alarm — a human reviewer clears false alarms downstream — I optimized for recall (catch rate) and used precision as a guardrail so reviewers are not overwhelmed. I set the targets at a <span class="k">95% catch rate</span> for the three high-severity categories (threat, severe-toxic, identity-hate) and <span class="k">85%</span> for the rest.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="snum">3</div>
+    <div class="sbody">
+      <h3>Built the evaluation set</h3>
+      <p>I used the Jigsaw dataset (about 160,000 human-labeled comments) as the answer key. I built the evaluation set by stratified sampling rather than random sampling: threats make up only about 0.3% of the data, so a random 2,000-comment sample would contain roughly six threats — too few to measure a 95% catch rate against. Instead I took all <span class="k">478 threats</span>, over-sampled the other rare categories, and added a block of clean comments to measure false alarms. The result was a <span class="k">4,378-comment</span> evaluation set with enough of every category to measure.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="snum">4</div>
+    <div class="sbody">
+      <h3>Built the classifier</h3>
+      <p>I wrote a prompt instructing Claude to return a confidence score from 0 to 1 for each of the six categories, with definitions for each. I ran it on the lowest-cost model (Claude Haiku) so that cost would be established as a baseline before considering anything more expensive.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="snum">5</div>
+    <div class="sbody">
+      <h3>Ran the baseline</h3>
+      <p>On the first full run with default settings, the classifier met the target on <span class="k">2 of 6</span> categories. Obscene, identity-hate, severe-toxic, and threat all fell short. This established the starting point for improvement.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="snum">6</div>
+    <div class="sbody">
+      <h3>Tuned the flag thresholds</h3>
+      <p>Each category has a cutoff that decides how high a confidence score must be before the comment is flagged. Lowering those cutoffs per category — flagging more readily where missing content is costly — improved obscene and identity-hate to their targets at no additional cost, since it only re-reads scores already produced. This brought the system to <span class="k">4 of 6</span>.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="snum">7</div>
+    <div class="sbody">
+      <h3>Revised the prompt, including a change that made things worse</h3>
+      <p>I broadened the definition of "threat" to include wishing serious harm, illness, or death on a person. That raised the threat catch rate to <span class="k">98%</span>, above target. In the same revision I tightened the definition of "severe-toxic" to only the most extreme cases and told the model to prefer the milder label when unsure. This over-corrected: the severe-toxic catch rate dropped sharply. The change to threat helped; the change to severe-toxic did not, so I kept the first and reverted the second. Prompt changes affect categories independently and need to be measured, not assumed.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="snum">8</div>
+    <div class="sbody">
+      <h3>Checked whether a stronger model was needed</h3>
+      <p>The remaining question was severe-toxic, and the common assumption would be to move to a stronger, more expensive model. Before recommending that spend, I ran the low-cost model and a stronger model on the same 60 comments with the same prompt. Both produced the same catch rate on this sample. On this evidence, a model upgrade was not the fix, so I did not pursue it.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="snum">9</div>
+    <div class="sbody">
+      <h3>Interpreted the severe-toxic result</h3>
+      <p>Severe-toxic still fell short as a standalone number. However, every severe-toxic comment in the dataset is also labeled toxic (<span class="k">1,595 of 1,595</span>), and the classifier catches 100% of toxic comments. So every severe-toxic comment is already flagged for review under the toxic label — nothing harmful goes unreviewed. The standalone severe-toxic metric is low, but the business requirement (no harmful comment reaches users unreviewed) is met. The remaining limitation is that the severe-toxic signal is too noisy to reliably rank comments by severity, which would matter only if strict worst-first triage were required.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="snum">10</div>
+    <div class="sbody">
+      <h3>Final results and decision</h3>
+      <p>The system runs on the lowest-cost model with per-category thresholds and the revised prompt. Five of six categories meet target on their own, and the sixth (severe-toxic) is covered through the toxic label. No spend on a more expensive model was needed.</p>
+      <table>
+        <thead><tr><th>Category</th><th class="n">Baseline</th><th class="n">Final</th><th class="n">Target</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>toxic</td><td class="n">94%</td><td class="n">100%</td><td class="n">85%</td><td class="met">met</td></tr>
+          <tr><td>obscene</td><td class="n">78%</td><td class="n">98%</td><td class="n">85%</td><td class="met">met</td></tr>
+          <tr><td>insult</td><td class="n">95%</td><td class="n">100%</td><td class="n">85%</td><td class="met">met</td></tr>
+          <tr><td>threat</td><td class="n">92%</td><td class="n">98%</td><td class="n">95%</td><td class="met">met</td></tr>
+          <tr><td>identity-hate</td><td class="n">79%</td><td class="n">95%</td><td class="n">95%</td><td class="met">met</td></tr>
+          <tr><td>severe-toxic</td><td class="n">79%</td><td class="n">—</td><td class="n">95%</td><td class="nomet">covered via toxic</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>What I built</h2>
+  <ul>
+    <li>A per-category content-moderation classifier built on the Anthropic API.</li>
+    <li>A Python evaluation harness: stratified sampling, per-category precision/recall against targets, threshold tuning, and a cheap-vs-stronger model comparison.</li>
+    <li>A model-selection decision supported by measurement rather than assumption, reached for a few dollars of total spend.</li>
+  </ul>
+  <p class="links">
+    <a href="#" class="soon">Eval harness on GitHub — coming soon</a>
+    <a href="#" class="soon">Live demo — coming soon</a>
+  </p>
+
+  <footer>Forward-Deployed PM portfolio · Project 1 of 3 · Content-moderation pipeline with a production evaluation harness.</footer>
+</div>
+
+<script>
+  var root=document.documentElement, tg=document.getElementById('tg');
+  tg.addEventListener('click',function(){
+    var next=(root.getAttribute('data-theme')==='dark')?'light':'dark';
+    root.setAttribute('data-theme',next);
+    tg.textContent=(next==='dark')?'Light':'Dark';
+  });
+</script>
+</body>
+</html>
