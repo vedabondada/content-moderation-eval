@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Content Moderation — Eval Lab</title>
+<style>
+  :root{
+    --bg:#0d0d0d; --surface:#161615; --ink:#ffffff; --ink2:#c3c2b7; --muted:#8a8880;
+    --grid:#2a2a28; --track:#242422; --accent:#3987e5;
+    --good:#25c25a; --bad:#e66767; --ring:rgba(255,255,255,0.12);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.55;font-size:15px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:820px;margin:0 auto;padding:34px 22px 70px}
+  .kicker{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  h1{font-size:30px;letter-spacing:-.02em;margin:8px 0 8px;font-weight:800}
+  .lede{color:var(--ink2);margin:0 0 6px;font-size:16px}
+  .note{font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:11px 14px;margin:16px 0 0}
+  section{margin-top:34px;padding-top:26px;border-top:1px solid var(--grid)}
+  h2{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 14px;font-weight:700}
+  .card{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:20px}
+  /* slider + readouts */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+  .stat{border:1px solid var(--ring);border-radius:10px;padding:12px 14px;background:var(--bg)}
+  .stat .n{font-size:27px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+  .stat .l{font-size:12px;color:var(--ink2);margin-top:6px}
+  .n.good{color:var(--good)} .n.bad{color:var(--bad)} .n.acc{color:var(--accent)}
+  .sliderrow{display:flex;align-items:center;gap:14px;margin:6px 2px 2px}
+  .sliderrow input[type=range]{flex:1;accent-color:var(--accent);height:4px}
+  .thval{font-variant-numeric:tabular-nums;font-weight:700;min-width:96px;text-align:right;font-size:14px;color:var(--ink2)}
+  figure{margin:16px 0 6px}
+  .legend{display:flex;gap:18px;font-size:12.5px;color:var(--ink2);margin-bottom:8px}
+  .sw{display:inline-block;width:12px;height:3px;border-radius:2px;vertical-align:3px;margin-right:6px}
+  .takeaway{font-size:14px;color:var(--ink);background:var(--bg);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:12px 14px;margin-top:14px}
+  .takeaway b.good{color:var(--good)} .takeaway b.bad{color:var(--bad)}
+  /* explorer */
+  select{width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--ring);border-radius:9px;padding:10px 12px;font:inherit;font-size:14px}
+  .ctext{margin:14px 0 12px;color:var(--ink)}
+  .scores{display:flex;flex-direction:column;gap:7px}
+  .srow{display:grid;grid-template-columns:110px 1fr 40px;align-items:center;gap:10px}
+  .sname{font-size:12.5px;color:var(--ink2)} .sname.hs{color:var(--ink);font-weight:600}
+  .bar{height:8px;background:var(--track);border-radius:4px;overflow:hidden}
+  .fill{height:100%;border-radius:4px;background:var(--accent)}
+  .fill.on{background:var(--good)}
+  .sval{font-size:12px;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink2)}
+  .verdict{margin-top:14px;font-size:14px;font-weight:700}
+  .verdict.flag{color:var(--good)} .verdict.pass{color:var(--muted)}
+  /* findings */
+  .findings{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .f{border:1px solid var(--ring);border-radius:10px;padding:14px;background:var(--surface)}
+  .f .h{font-weight:700;font-size:14px;margin-bottom:4px}
+  .f .b{font-size:13px;color:var(--ink2)}
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13.5px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--grid)}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .met{color:var(--good);font-weight:700} .via{color:var(--ink2)}
+  /* prompt */
+  pre{background:var(--bg);border:1px solid var(--ring);border-radius:10px;padding:14px;overflow:auto;font-size:12.5px;color:var(--ink2);white-space:pre-wrap;line-height:1.5}
+  .copy{margin-top:10px;border:1px solid var(--ring);background:var(--bg);color:var(--ink);cursor:pointer;font:inherit;font-size:13px;font-weight:600;padding:8px 14px;border-radius:8px}
+  .copy:hover{border-color:var(--ink2)}
+  footer{margin-top:30px;padding-top:18px;border-top:1px solid var(--grid);color:var(--muted);font-size:12.5px}
+  @media(max-width:620px){.stats{grid-template-columns:1fr}.findings{grid-template-columns:1fr}.srow{grid-template-columns:92px 1fr 36px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">Content Moderation · Eval Lab</div>
+  <h1>Drag the threshold. Watch the tradeoff.</h1>
+  <p class="lede">A moderation classifier flags harmful comments for human review. How aggressively it flags is a single dial — and that dial trades <b style="color:var(--good)">catching harmful content</b> against <b style="color:var(--bad)">false alarms for reviewers</b>. These are real model scores measured on a 4,378-comment evaluation set.</p>
+
+  <section style="border-top:none;padding-top:8px">
+    <h2>1 · Tune the flag threshold</h2>
+    <div class="card">
+      <div class="stats">
+        <div class="stat"><div class="n good" id="rec">–</div><div class="l">Harmful content caught</div></div>
+        <div class="stat"><div class="n acc" id="hs">–</div><div class="l">High-severity caught (threats, hate, self-harm)</div></div>
+        <div class="stat"><div class="n bad" id="cf">–</div><div class="l">Clean comments wrongly flagged</div></div>
+      </div>
+      <div class="sliderrow">
+        <input type="range" id="thr" min="1" max="99" value="20">
+        <div class="thval">flag at ≥ <span id="thv">0.20</span></div>
+      </div>
+      <figure>
+        <div class="legend">
+          <span><span class="sw" style="background:var(--good)"></span>Harmful caught</span>
+          <span><span class="sw" style="background:var(--bad)"></span>Clean flagged (false alarms)</span>
+        </div>
+        <svg id="chart" viewBox="0 0 640 220" width="100%" preserveAspectRatio="xMidYMid meet"></svg>
+      </figure>
+      <div class="takeaway" id="take"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Try it on real comments</h2>
+    <div class="card">
+      <select id="pick"></select>
+      <div class="ctext" id="ctext"></div>
+      <div class="scores" id="cscores"></div>
+      <div class="verdict" id="verdict"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · What the full evaluation found</h2>
+    <div class="findings">
+      <div class="f"><div class="h">2 of 6 → 5 of 6</div><div class="b">Categories reaching target, after threshold tuning and one prompt fix — on the cheapest model.</div></div>
+      <div class="f"><div class="h">A 15¢ experiment</div><div class="b">A stronger model scored the same as the cheap one on the hard category. The upgrade wasn't worth it — so it wasn't used.</div></div>
+    </div>
+    <table>
+      <thead><tr><th>Category</th><th class="n">Baseline</th><th class="n">Final</th><th class="n">Target</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td>toxic</td><td class="n">94%</td><td class="n">100%</td><td class="n">85%</td><td class="met">met</td></tr>
+        <tr><td>obscene</td><td class="n">78%</td><td class="n">98%</td><td class="n">85%</td><td class="met">met</td></tr>
+        <tr><td>insult</td><td class="n">95%</td><td class="n">100%</td><td class="n">85%</td><td class="met">met</td></tr>
+        <tr><td>threat</td><td class="n">92%</td><td class="n">98%</td><td class="n">95%</td><td class="met">met</td></tr>
+        <tr><td>identity-hate</td><td class="n">79%</td><td class="n">95%</td><td class="n">95%</td><td class="met">met</td></tr>
+        <tr><td>severe-toxic</td><td class="n">79%</td><td class="n">—</td><td class="n">95%</td><td class="via">covered via toxic</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>4 · The classifier prompt</h2>
+    <div class="card">
+      <pre id="prompt"></pre>
+      <button class="copy" id="copy">Copy prompt</button>
+    </div>
+  </section>
+
+  <footer>
+    Honest boundary: scores are real output from Claude Haiku on the public Jigsaw dataset. The evaluation set is deliberately enriched with harmful comments so every category is measurable, so the false-alarm rate shown here is higher than it would be on real traffic (which is mostly clean). This is a decision-support tool — it flags for a human; it never removes content on its own.
+  </footer>
+</div>
+
+<script>
+const C = {"n": 4378, "n_harmful": 3378, "n_clean": 1000, "n_highsev": 2063, "thresholds": [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2, 0.21, 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.3, 0.31, 0.32, 0.33, 0.34, 0.35, 0.36, 0.37, 0.38, 0.39, 0.4, 0.41, 0.42, 0.43, 0.44, 0.45, 0.46, 0.47, 0.48, 0.49, 0.5, 0.51, 0.52, 0.53, 0.54, 0.55, 0.56, 0.57, 0.58, 0.59, 0.6, 0.61, 0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68, 0.69, 0.7, 0.71, 0.72, 0.73, 0.74, 0.75, 0.76, 0.77, 0.78, 0.79, 0.8, 0.81, 0.82, 0.83, 0.84, 0.85, 0.86, 0.87, 0.88, 0.89, 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99], "global": {"recall": [0.996, 0.996, 0.996, 0.996, 0.996, 0.995, 0.995, 0.995, 0.994, 0.994, 0.993, 0.993, 0.993, 0.993, 0.993, 0.981, 0.981, 0.981, 0.981, 0.981, 0.98, 0.98, 0.98, 0.98, 0.98, 0.972, 0.972, 0.972, 0.972, 0.972, 0.966, 0.966, 0.966, 0.966, 0.966, 0.956, 0.956, 0.956, 0.956, 0.956, 0.953, 0.953, 0.951, 0.951, 0.951, 0.944, 0.944, 0.944, 0.944, 0.944, 0.943, 0.943, 0.943, 0.943, 0.943, 0.942, 0.942, 0.942, 0.942, 0.942, 0.938, 0.938, 0.936, 0.936, 0.936, 0.932, 0.932, 0.932, 0.932, 0.932, 0.924, 0.924, 0.792, 0.792, 0.792, 0.765, 0.765, 0.765, 0.75, 0.75, 0.739, 0.739, 0.737, 0.737, 0.737, 0.604, 0.604, 0.603, 0.596, 0.596, 0.578, 0.578, 0.43, 0.43, 0.43, 0.124, 0.123, 0.123, 0.053], "clean_flagged": [0.506, 0.489, 0.455, 0.455, 0.455, 0.309, 0.309, 0.309, 0.298, 0.298, 0.278, 0.278, 0.277, 0.277, 0.277, 0.159, 0.159, 0.159, 0.159, 0.159, 0.153, 0.153, 0.153, 0.153, 0.153, 0.131, 0.131, 0.131, 0.13, 0.13, 0.118, 0.118, 0.118, 0.118, 0.118, 0.086, 0.086, 0.086, 0.086, 0.086, 0.083, 0.083, 0.078, 0.078, 0.078, 0.067, 0.067, 0.067, 0.067, 0.067, 0.067, 0.067, 0.067, 0.067, 0.067, 0.065, 0.065, 0.065, 0.065, 0.065, 0.065, 0.065, 0.058, 0.058, 0.058, 0.056, 0.056, 0.056, 0.056, 0.056, 0.055, 0.055, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.009, 0.009, 0.008, 0.008, 0.007, 0.007, 0.007, 0.002, 0.002, 0.002, 0.002, 0.002, 0.002, 0.002, 0.002, 0.002, 0.002, 0.0, 0.0, 0.0, 0.0], "flagged_frac": [0.884, 0.881, 0.873, 0.873, 0.873, 0.838, 0.838, 0.838, 0.835, 0.835, 0.83, 0.83, 0.83, 0.83, 0.83, 0.793, 0.793, 0.793, 0.793, 0.793, 0.791, 0.791, 0.791, 0.791, 0.791, 0.78, 0.78, 0.78, 0.78, 0.78, 0.772, 0.772, 0.772, 0.772, 0.772, 0.757, 0.757, 0.757, 0.757, 0.757, 0.754, 0.754, 0.752, 0.752, 0.752, 0.744, 0.744, 0.744, 0.744, 0.744, 0.743, 0.743, 0.743, 0.743, 0.743, 0.742, 0.742, 0.742, 0.742, 0.742, 0.739, 0.739, 0.735, 0.735, 0.735, 0.732, 0.732, 0.732, 0.732, 0.732, 0.725, 0.725, 0.613, 0.613, 0.613, 0.592, 0.592, 0.592, 0.581, 0.581, 0.572, 0.572, 0.57, 0.57, 0.57, 0.467, 0.467, 0.466, 0.46, 0.46, 0.447, 0.447, 0.333, 0.333, 0.332, 0.096, 0.095, 0.095, 0.041], "hs_recall": [0.999, 0.999, 0.999, 0.999, 0.999, 0.998, 0.998, 0.998, 0.997, 0.997, 0.997, 0.997, 0.997, 0.997, 0.997, 0.992, 0.992, 0.992, 0.992, 0.992, 0.991, 0.991, 0.991, 0.991, 0.991, 0.988, 0.988, 0.988, 0.988, 0.988, 0.986, 0.986, 0.986, 0.986, 0.986, 0.983, 0.983, 0.983, 0.983, 0.983, 0.981, 0.981, 0.981, 0.981, 0.981, 0.979, 0.979, 0.979, 0.979, 0.979, 0.978, 0.978, 0.978, 0.978, 0.978, 0.977, 0.977, 0.977, 0.977, 0.977, 0.974, 0.974, 0.974, 0.974, 0.974, 0.971, 0.971, 0.971, 0.971, 0.971, 0.966, 0.966, 0.911, 0.911, 0.911, 0.892, 0.892, 0.892, 0.882, 0.882, 0.874, 0.874, 0.873, 0.873, 0.873, 0.775, 0.775, 0.775, 0.768, 0.767, 0.751, 0.751, 0.6, 0.6, 0.6, 0.186, 0.184, 0.184, 0.08]}, "categories": {"toxic": {"recall": [0.997, 0.997, 0.997, 0.997, 0.997, 0.993, 0.993, 0.993, 0.993, 0.993, 0.993, 0.993, 0.993, 0.993, 0.993, 0.973, 0.973, 0.973, 0.973, 0.973, 0.973, 0.973, 0.973, 0.973, 0.973, 0.971, 0.971, 0.971, 0.971, 0.971, 0.957, 0.957, 0.957, 0.957, 0.957, 0.947, 0.947, 0.947, 0.947, 0.947, 0.947, 0.947, 0.946, 0.946, 0.946, 0.938, 0.938, 0.938, 0.938, 0.938, 0.938, 0.938, 0.938, 0.938, 0.938, 0.938, 0.938, 0.938, 0.938, 0.938, 0.934, 0.934, 0.932, 0.932, 0.932, 0.929, 0.929, 0.929, 0.929, 0.929, 0.922, 0.922, 0.782, 0.782, 0.782, 0.75, 0.75, 0.75, 0.743, 0.743, 0.743, 0.743, 0.74, 0.74, 0.74, 0.591, 0.591, 0.59, 0.589, 0.589, 0.589, 0.589, 0.438, 0.438, 0.438, 0.12, 0.12, 0.12, 0.053], "positives": 3209}, "severe_toxic": {"recall": [0.994, 0.994, 0.994, 0.994, 0.994, 0.985, 0.985, 0.985, 0.985, 0.985, 0.976, 0.976, 0.976, 0.976, 0.976, 0.828, 0.828, 0.828, 0.828, 0.828, 0.827, 0.827, 0.827, 0.827, 0.827, 0.804, 0.804, 0.804, 0.803, 0.803, 0.802, 0.802, 0.802, 0.802, 0.802, 0.766, 0.766, 0.766, 0.766, 0.766, 0.765, 0.765, 0.764, 0.764, 0.764, 0.702, 0.702, 0.702, 0.702, 0.702, 0.702, 0.702, 0.702, 0.702, 0.702, 0.701, 0.701, 0.701, 0.701, 0.701, 0.694, 0.694, 0.694, 0.694, 0.694, 0.664, 0.664, 0.664, 0.662, 0.662, 0.637, 0.637, 0.543, 0.543, 0.543, 0.421, 0.421, 0.421, 0.387, 0.387, 0.386, 0.386, 0.386, 0.386, 0.386, 0.22, 0.22, 0.22, 0.191, 0.19, 0.185, 0.185, 0.098, 0.098, 0.098, 0.041, 0.041, 0.038, 0.009], "positives": 1084}, "obscene": {"recall": [0.984, 0.983, 0.979, 0.979, 0.979, 0.947, 0.947, 0.947, 0.94, 0.94, 0.924, 0.924, 0.924, 0.924, 0.924, 0.846, 0.846, 0.846, 0.845, 0.845, 0.838, 0.838, 0.838, 0.838, 0.838, 0.817, 0.817, 0.817, 0.817, 0.817, 0.81, 0.81, 0.81, 0.81, 0.81, 0.787, 0.787, 0.787, 0.787, 0.787, 0.777, 0.777, 0.777, 0.777, 0.777, 0.749, 0.749, 0.749, 0.749, 0.749, 0.748, 0.748, 0.748, 0.748, 0.748, 0.748, 0.748, 0.748, 0.748, 0.748, 0.737, 0.737, 0.737, 0.737, 0.737, 0.704, 0.704, 0.704, 0.692, 0.692, 0.65, 0.65, 0.638, 0.638, 0.638, 0.543, 0.543, 0.543, 0.518, 0.518, 0.499, 0.499, 0.499, 0.499, 0.499, 0.32, 0.32, 0.32, 0.264, 0.259, 0.132, 0.132, 0.075, 0.074, 0.073, 0.026, 0.022, 0.019, 0.003], "positives": 2567}, "threat": {"recall": [0.998, 0.998, 0.998, 0.998, 0.998, 0.998, 0.998, 0.998, 0.992, 0.992, 0.992, 0.992, 0.992, 0.992, 0.992, 0.979, 0.979, 0.979, 0.979, 0.979, 0.979, 0.979, 0.979, 0.979, 0.979, 0.962, 0.962, 0.962, 0.96, 0.96, 0.96, 0.96, 0.96, 0.96, 0.96, 0.937, 0.937, 0.937, 0.935, 0.935, 0.931, 0.931, 0.929, 0.929, 0.929, 0.908, 0.908, 0.908, 0.908, 0.908, 0.908, 0.908, 0.908, 0.908, 0.908, 0.906, 0.906, 0.906, 0.902, 0.902, 0.891, 0.891, 0.887, 0.887, 0.887, 0.858, 0.858, 0.858, 0.824, 0.824, 0.782, 0.782, 0.726, 0.726, 0.726, 0.655, 0.655, 0.655, 0.607, 0.607, 0.569, 0.565, 0.552, 0.552, 0.552, 0.441, 0.441, 0.441, 0.347, 0.326, 0.243, 0.243, 0.157, 0.144, 0.119, 0.096, 0.088, 0.063, 0.029], "positives": 478}, "insult": {"recall": [0.998, 0.998, 0.998, 0.998, 0.998, 0.996, 0.996, 0.996, 0.995, 0.995, 0.99, 0.99, 0.989, 0.989, 0.989, 0.985, 0.985, 0.985, 0.985, 0.985, 0.979, 0.979, 0.979, 0.979, 0.979, 0.973, 0.973, 0.973, 0.973, 0.973, 0.971, 0.971, 0.971, 0.971, 0.971, 0.959, 0.959, 0.959, 0.958, 0.958, 0.952, 0.952, 0.952, 0.952, 0.952, 0.934, 0.934, 0.934, 0.934, 0.934, 0.933, 0.933, 0.933, 0.933, 0.933, 0.931, 0.931, 0.931, 0.929, 0.929, 0.919, 0.919, 0.919, 0.919, 0.918, 0.879, 0.879, 0.879, 0.825, 0.825, 0.779, 0.779, 0.771, 0.771, 0.771, 0.714, 0.714, 0.714, 0.695, 0.695, 0.617, 0.617, 0.614, 0.614, 0.614, 0.489, 0.489, 0.489, 0.338, 0.314, 0.184, 0.184, 0.103, 0.095, 0.084, 0.059, 0.033, 0.025, 0.008], "positives": 2476}, "identity_hate": {"recall": [0.981, 0.981, 0.974, 0.974, 0.974, 0.958, 0.958, 0.958, 0.944, 0.944, 0.921, 0.921, 0.91, 0.91, 0.91, 0.876, 0.876, 0.876, 0.874, 0.874, 0.871, 0.871, 0.871, 0.871, 0.871, 0.846, 0.846, 0.846, 0.845, 0.845, 0.838, 0.838, 0.838, 0.838, 0.838, 0.793, 0.793, 0.793, 0.793, 0.793, 0.781, 0.781, 0.78, 0.78, 0.78, 0.755, 0.755, 0.755, 0.754, 0.754, 0.751, 0.751, 0.751, 0.751, 0.751, 0.746, 0.746, 0.746, 0.738, 0.738, 0.723, 0.723, 0.719, 0.719, 0.718, 0.683, 0.683, 0.683, 0.663, 0.663, 0.635, 0.634, 0.592, 0.592, 0.592, 0.552, 0.551, 0.551, 0.515, 0.513, 0.48, 0.474, 0.453, 0.453, 0.453, 0.386, 0.386, 0.382, 0.301, 0.266, 0.224, 0.223, 0.186, 0.131, 0.096, 0.088, 0.062, 0.041, 0.033], "positives": 936}}};
+const SAMPLES = [{"id": "0c8c45cc1a037baf", "text": "Why are you still here? Can you not find anything more important to do, like killing yourself?", "scores": {"toxic": 0.92, "severe_toxic": 0.78, "obscene": 0.05, "threat": 0.72, "insult": 0.85, "identity_hate": 0.02}}, {"id": "0125f95ac41f6cea", "text": "Add Mobile porn as additional WP:ALSO link", "scores": {"toxic": 0.0, "severe_toxic": 0.0, "obscene": 0.0, "threat": 0.0, "insult": 0.0, "identity_hate": 0.0}}, {"id": "161483d873256623", "text": "EVERYONE WANTS TO KILL BILL GOD DAM GATES HE IS A NERD WHY NOT.??", "scores": {"toxic": 0.75, "severe_toxic": 0.35, "obscene": 0.15, "threat": 0.65, "insult": 0.7, "identity_hate": 0.05}}, {"id": "4f0d6f3115a32c03", "text": "Why are you guys reverting my edits? Im trying to cooperate with a picture of a native cherokee wedding and you revert it, i dont understand. How about some workout fatty.", "scores": {"toxic": 0.72, "severe_toxic": 0.15, "obscene": 0.05, "threat": 0.0, "insult": 0.68, "identity_hate": 0.08}}, {"id": "5dcbf0abdc72e868", "text": "I recollect that the article used to mention his spouse and children. Not having this information makes him seem not quite human.", "scores": {"toxic": 0.05, "severe_toxic": 0.0, "obscene": 0.0, "threat": 0.0, "insult": 0.0, "identity_hate": 0.0}}, {"id": "875ce851bcc0df5d", "text": "im going to punch jim wales one day. ill find him, then ill f***ing punch him out.", "scores": {"toxic": 0.95, "severe_toxic": 0.75, "obscene": 0.35, "threat": 0.85, "insult": 0.4, "identity_hate": 0.0}}, {"id": "87c2c0f429196f2f", "text": ", and also counts the other German losses", "scores": {"toxic": 0.0, "severe_toxic": 0.0, "obscene": 0.0, "threat": 0.0, "insult": 0.0, "identity_hate": 0.0}}, {"id": "934512b5ece8a059", "text": "f*** you The Anome, Porn for you.", "scores": {"toxic": 0.95, "severe_toxic": 0.15, "obscene": 0.85, "threat": 0.05, "insult": 0.9, "identity_hate": 0.02}}, {"id": "971494c52942a6cc", "text": "Our warning to you ,Weare not afraid of you blocking our edits here ,and if you keep going with this Nationalist propaganda Chauvinism and Hate speech,we might start looking for you and face you in person,so watch out !", "scores": {"toxic": 0.85, "severe_toxic": 0.72, "obscene": 0.05, "threat": 0.78, "insult": 0.35, "identity_hate": 0.15}}, {"id": "d0ff6e22cfda49f0", "text": "Oh look a f***ing islamist with admin powers f*** you asswipe.", "scores": {"toxic": 0.95, "severe_toxic": 0.72, "obscene": 0.85, "threat": 0.15, "insult": 0.88, "identity_hate": 0.68}}, {"id": "d6d082903ad49b3b", "text": "Sidenote: Xizer is not a racist. Calling this guy a n***** was just funny though. lol", "scores": {"toxic": 0.85, "severe_toxic": 0.78, "obscene": 0.35, "threat": 0.0, "insult": 0.72, "identity_hate": 0.82}}, {"id": "dfebec86c7ab9af7", "text": "Perhaps it\u2019s worth starting a list of Jewish terms and including Yetzer harah there.", "scores": {"toxic": 0.0, "severe_toxic": 0.0, "obscene": 0.0, "threat": 0.0, "insult": 0.0, "identity_hate": 0.0}}, {"id": "e43474521b001d35", "text": "Stop talking you stink of penis breath.", "scores": {"toxic": 0.85, "severe_toxic": 0.15, "obscene": 0.7, "threat": 0.0, "insult": 0.8, "identity_hate": 0.0}}, {"id": "0f03dd668d7fc2f0", "text": "You are really a dog .... this is the photo of my dog which you have stolen and posted on your page .. nastered....priyadarshivishal23", "scores": {"toxic": 0.6, "severe_toxic": 0.1, "obscene": 0.2, "threat": 0.0, "insult": 0.7, "identity_hate": 0.0}}, {"id": "0ff3e60d7c7f9df3", "text": "IT S PEOPLE LIKE YOU THAT RUIN WIKIPEDIA (Faradayplank) GO SUCK A FAT ONE!!!", "scores": {"toxic": 0.92, "severe_toxic": 0.35, "obscene": 0.45, "threat": 0.05, "insult": 0.88, "identity_hate": 0.02}}, {"id": "1422eea12e416077", "text": "\"Don't worry Bill, Wikzilla just goes and reverts your vandalism. Signed Dufus \"\"He's everywhere!\"\" the Dog, beloved pet of Wikzilla\"", "scores": {"toxic": 0.15, "severe_toxic": 0.0, "obscene": 0.0, "threat": 0.0, "insult": 0.2, "identity_hate": 0.0}}, {"id": "161bd9408c74abb7", "text": "Glenn Beck is a f*****. He likes d*** in his ass. I'd like to cut his head off.", "scores": {"toxic": 0.95, "severe_toxic": 0.92, "obscene": 0.85, "threat": 0.88, "insult": 0.9, "identity_hate": 0.88}}, {"id": "1ea133bcfc647eb2", "text": "Someone see to the removals above and to this.diff", "scores": {"toxic": 0.15, "severe_toxic": 0.05, "obscene": 0.0, "threat": 0.0, "insult": 0.0, "identity_hate": 0.0}}, {"id": "27c4cc368a47e7ed", "text": "go f*** yourself you f***ing b****", "scores": {"toxic": 0.95, "severe_toxic": 0.75, "obscene": 0.9, "threat": 0.05, "insult": 0.85, "identity_hate": 0.1}}, {"id": "44d6685502d9f1b4", "text": "Get out of America. We don't want another supremacist.", "scores": {"toxic": 0.72, "severe_toxic": 0.15, "obscene": 0.0, "threat": 0.0, "insult": 0.65, "identity_hate": 0.25}}, {"id": "52dd9f38e93b3379", "text": "27 19:31, 6 Sep 2004 (UTC)", "scores": {"toxic": 0.0, "severe_toxic": 0.0, "obscene": 0.0, "threat": 0.0, "insult": 0.0, "identity_hate": 0.0}}, {"id": "5fd20306a7e18a43", "text": "There's some weaseling and pov pushing in the next to last sentence, but other than that I don't think it's too bad.", "scores": {"toxic": 0.15, "severe_toxic": 0.0, "obscene": 0.0, "threat": 0.0, "insult": 0.1, "identity_hate": 0.0}}, {"id": "6ec35828632ddeb5", "text": "You are f***ing stupppppppppid are you the one who invented wikipedia other know as s***ipedia/crapipedia cause this is just crap so go get a life you looser with no life.", "scores": {"toxic": 0.95, "severe_toxic": 0.6, "obscene": 0.85, "threat": 0.05, "insult": 0.9, "identity_hate": 0.05}}, {"id": "716cf136c2008b86", "text": "f*** FINLAY McWALTER hes a f***** and he needs to get a f***ing life f*****.", "scores": {"toxic": 0.95, "severe_toxic": 0.88, "obscene": 0.9, "threat": 0.05, "insult": 0.92, "identity_hate": 0.89}}];
+const PROMPT = "You are a content-moderation classifier for an online community platform. For each category, output a calibrated confidence 0.0-1.0 that the comment belongs to it:\\n  toxic, severe_toxic, obscene, threat, insult, identity_hate.\\nDefinitions:\\n- toxic = rude, disrespectful, or unreasonable.\\n- severe_toxic = a subset of toxic that is clearly EXTREME: explicit hatred, aggression, slurs, or dehumanization, distinctly worse than ordinary rudeness. Judge severity honestly on its merits.\\n- obscene = profane or sexual.\\n- threat = intent to harm a person, OR wishing serious harm/illness/death on them, OR encouraging violence against them.\\n- insult = demeaning a person.\\n- identity_hate = hate or slurs targeting a protected identity.\\nA comment may belong to several categories or none. Respond with ONLY a JSON object mapping each category to its confidence.";
+const CATS=["toxic","severe_toxic","obscene","threat","insult","identity_hate"];
+const HS=new Set(["threat","severe_toxic","identity_hate"]);
+const LAB={toxic:"toxic",severe_toxic:"severe-toxic",obscene:"obscene",threat:"threat",insult:"insult",identity_hate:"identity-hate"};
+const $=id=>document.getElementById(id);
+const ths=C.thresholds;
+
+// ---- chart ----
+const W=640,H=220,PADL=34,PADR=12,PADT=12,PADB=26;
+function x(t){return PADL+(t-0.01)/(0.99-0.01)*(W-PADL-PADR);}
+function y(v){return PADT+(1-v)*(H-PADT-PADB);}
+function path(arr){let d="";for(let i=0;i<ths.length;i++){const v=arr[i];if(v==null)continue;d+=(d?"L":"M")+x(ths[i]).toFixed(1)+" "+y(v).toFixed(1)+" ";}return d;}
+function drawChart(){
+  const g=[];
+  // gridlines
+  [0,0.25,0.5,0.75,1].forEach(v=>{g.push(`<line x1="${PADL}" y1="${y(v)}" x2="${W-PADR}" y2="${y(v)}" stroke="var(--grid)" stroke-width="1"/>`);
+    g.push(`<text x="${PADL-6}" y="${y(v)+3}" text-anchor="end" font-size="9" fill="var(--muted)">${v*100|0}</text>`);});
+  g.push(`<path d="${path(C.global.recall)}" fill="none" stroke="var(--good)" stroke-width="2"/>`);
+  g.push(`<path d="${path(C.global.clean_flagged)}" fill="none" stroke="var(--bad)" stroke-width="2"/>`);
+  g.push(`<line id="mark" x1="0" y1="${PADT}" x2="0" y2="${H-PADB}" stroke="var(--ink)" stroke-width="1" opacity="0.5"/>`);
+  g.push(`<circle id="dotG" r="4" fill="var(--good)"/><circle id="dotB" r="4" fill="var(--bad)"/>`);
+  g.push(`<text x="${PADL}" y="${H-6}" font-size="9" fill="var(--muted)">flag at low score (aggressive) →→→ flag only at high score (cautious)</text>`);
+  $("chart").innerHTML=g.join("");
+}
+function idx(){return +$("thr").value-1;}
+function update(){
+  const i=idx(), t=ths[i];
+  const rec=C.global.recall[i], hs=C.global.hs_recall[i], cf=C.global.clean_flagged[i];
+  $("thv").textContent=t.toFixed(2);
+  $("rec").textContent=Math.round(rec*100)+"%";
+  $("hs").textContent=Math.round(hs*100)+"%";
+  $("cf").textContent=Math.round(cf*100)+"%";
+  const m=$("mark"); if(m){m.setAttribute("x1",x(t));m.setAttribute("x2",x(t));}
+  const dg=$("dotG"),db=$("dotB"); if(dg){dg.setAttribute("cx",x(t));dg.setAttribute("cy",y(rec));db.setAttribute("cx",x(t));db.setAttribute("cy",y(cf));}
+  $("take").innerHTML=`At <b>flag ≥ ${t.toFixed(2)}</b>, you catch <b class="good">${Math.round(rec*100)}%</b> of harmful content and wrongly flag <b class="bad">${Math.round(cf*100)}%</b> of clean comments. `+
+    (rec>=0.99? `Nothing harmful slips through — the cost is more for a human to clear.` : rec>=0.9? `Strong catch rate with a manageable review load.` : `Fewer false alarms, but harmful content is now being missed.`);
+  renderScores();
+}
+// ---- explorer ----
+function renderScores(){
+  const s=SAMPLES[+$("pick").value]; if(!s)return;
+  const t=ths[idx()];
+  $("ctext").textContent="“"+s.text+"”";
+  $("cscores").innerHTML=CATS.map(c=>{
+    const v=s.scores[c], on=v>=t, hs=HS.has(c);
+    return `<div class="srow"><div class="sname ${hs?'hs':''}">${LAB[c]}</div><div class="bar"><div class="fill ${on?'on':''}" style="width:${Math.round(v*100)}%"></div></div><div class="sval">${v.toFixed(2)}</div></div>`;
+  }).join("");
+  const trig=CATS.filter(c=>s.scores[c]>=t);
+  $("verdict").className="verdict "+(trig.length?"flag":"pass");
+  $("verdict").textContent = trig.length? `→ FLAGGED for review (${trig.map(c=>LAB[c]).join(", ")})` : `→ Not flagged — passes at this threshold`;
+}
+// init
+$("pick").innerHTML=SAMPLES.map((s,i)=>`<option value="${i}">${s.text.slice(0,70).replace(/</g,"&lt;")}${s.text.length>70?"…":""}</option>`).join("");
+$("prompt").textContent=PROMPT;
+$("copy").onclick=()=>{navigator.clipboard.writeText(PROMPT).then(()=>{$("copy").textContent="Copied ✓";setTimeout(()=>$("copy").textContent="Copy prompt",1500);});};
+$("thr").addEventListener("input",update);
+$("pick").addEventListener("change",renderScores);
+drawChart(); update();
+</script>
+</body>
+</html>
